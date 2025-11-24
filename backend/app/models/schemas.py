@@ -62,7 +62,7 @@ class GameStateResponse(BaseModel):
     winner: Optional[int]
     board: List[List[Dict[str, Any]]]
     players: List[Dict[str, Any]]
-    sequences: Dict[str, int]  # player_id -> count of sequences
+    sequences: Dict[str, List[List[List[int]]]]  # player_id -> list of sequences (each sequence is list of [row, col] pairs)
     sequences_needed_to_win: int
 
 

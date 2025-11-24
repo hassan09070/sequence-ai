@@ -8,6 +8,8 @@ interface CellProps {
   col: number;
   isLegalMove: boolean;
   onClick: () => void;
+  isInSequence?: boolean;
+  sequencePlayerId?: number | null;
 }
 
 const getCardColor = (card: string): string => {
@@ -23,11 +25,18 @@ const getChipColor = (chip: number | null): string => {
   return '';
 };
 
-export function Cell({ cell, row, col, isLegalMove, onClick }: CellProps) {
+const getSequenceGlow = (playerId: number | null): string => {
+  if (playerId === 1) return 'ring-4 ring-blue-400 ring-opacity-75 shadow-[0_0_20px_rgba(59,130,246,0.8)]';
+  if (playerId === 2) return 'ring-4 ring-green-400 ring-opacity-75 shadow-[0_0_20px_rgba(34,197,94,0.8)]';
+  return '';
+};
+
+export function Cell({ cell, row, col, isLegalMove, onClick, isInSequence = false, sequencePlayerId = null }: CellProps) {
   const isWild = cell.is_wild;
   const hasChip = cell.chip !== null;
   const cardColor = getCardColor(cell.card);
   const chipColor = getChipColor(cell.chip);
+  const sequenceGlow = isInSequence ? getSequenceGlow(sequencePlayerId) : '';
 
   return (
     <button
@@ -41,8 +50,9 @@ export function Cell({ cell, row, col, isLegalMove, onClick }: CellProps) {
         ${isLegalMove ? 'hover:bg-yellow-100 hover:scale-105 cursor-pointer ring-2 ring-yellow-400' : ''}
         ${hasChip ? 'cursor-not-allowed' : ''}
         ${!isLegalMove && !hasChip ? 'cursor-default' : ''}
+        ${sequenceGlow}
       `}
-      title={`${cell.card} at (${row}, ${col})`}
+      title={`${cell.card} at (${row}, ${col})${isInSequence ? ' - Part of sequence!' : ''}`}
     >
       {/* Card text */}
       <div className={`text-xs font-bold ${cardColor} ${hasChip ? 'opacity-30' : 'opacity-100'}`}>
@@ -53,6 +63,13 @@ export function Cell({ cell, row, col, isLegalMove, onClick }: CellProps) {
       {hasChip && (
         <div className={`absolute inset-1 rounded-full ${chipColor} shadow-lg flex items-center justify-center`}>
           <span className="text-white text-xs font-bold">{cell.chip}</span>
+        </div>
+      )}
+
+      {/* Sequence indicator - small star in corner */}
+      {isInSequence && (
+        <div className="absolute top-0 right-0 bg-yellow-400 rounded-bl-lg px-1">
+          <span className="text-xs">⭐</span>
         </div>
       )}
 

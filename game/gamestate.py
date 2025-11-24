@@ -153,7 +153,8 @@ class GameState:
                 for row in range(self.board.size):
                     for col in range(self.board.size):
                         chip = self.board.get_chip_at(row, col)
-                        if chip == opponent_id:
+                        # Only include removal if chip belongs to opponent AND is not in a completed sequence
+                        if chip == opponent_id and not self.board._is_position_in_sequence(row, col):
                             legal_moves.append(Move(player.player_id, card, row, col, "remove"))
             
             # Handle regular cards

@@ -200,6 +200,7 @@ export default function GamePage({ params }: GamePageProps) {
               board={gameState.board}
               legalMoves={legalMoves}
               onCellClick={handleCellClick}
+              sequences={gameState.sequences}
             />
 
             {/* Current Player's Hand */}

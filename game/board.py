@@ -4,7 +4,7 @@ Board Module for Sequence Game
 Manages the 10x10 game board with card mappings and chip placements.
 """
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import copy
 
 
@@ -41,6 +41,8 @@ class Board:
         self.card_grid = copy.deepcopy(self.BOARD_LAYOUT)
         # Chip grid: 0 = empty, 1 = player 1, 2 = player 2
         self.chip_grid = [[0 for _ in range(self.size)] for _ in range(self.size)]
+        # Track positions that are part of completed sequences (cannot be removed)
+        self.sequence_positions: Dict[int, List[List[Tuple[int, int]]]] = {1: [], 2: []}
         
         # Mark wild corners as occupied for both players (special value 3)
         for row, col in self.WILD_POSITIONS:
@@ -115,7 +117,10 @@ class Board:
         if (row, col) in self.WILD_POSITIONS or self.chip_grid[row][col] == 0:
             return False
         
-        # Cannot remove from a completed sequence (not implemented in basic version)
+        # Cannot remove from a completed sequence
+        if self._is_position_in_sequence(row, col):
+            return False
+        
         self.chip_grid[row][col] = 0
         return True
     
@@ -124,6 +129,14 @@ class Board:
         if not self._is_valid_position(row, col):
             return False
         return self.chip_grid[row][col] != 0
+    
+    def _is_position_in_sequence(self, row: int, col: int) -> bool:
+        """Check if a position is part of any completed sequence."""
+        for player_id in [1, 2]:
+            for sequence in self.sequence_positions.get(player_id, []):
+                if (row, col) in sequence:
+                    return True
+        return False
     
     def check_sequence(self, player_id: int) -> int:
         """
@@ -137,23 +150,33 @@ class Board:
         """
         sequences = 0
         visited = set()
+        found_sequences = []
         
         # Check horizontal sequences
-        sequences += self._check_horizontal_sequences(player_id, visited)
+        sequences += self._check_horizontal_sequences(player_id, visited, found_sequences)
         
         # Check vertical sequences
-        sequences += self._check_vertical_sequences(player_id, visited)
+        sequences += self._check_vertical_sequences(player_id, visited, found_sequences)
         
         # Check diagonal sequences (top-left to bottom-right)
-        sequences += self._check_diagonal_sequences(player_id, visited, direction="tlbr")
+        sequences += self._check_diagonal_sequences(player_id, visited, direction="tlbr", found_sequences=found_sequences)
         
         # Check diagonal sequences (top-right to bottom-left)
-        sequences += self._check_diagonal_sequences(player_id, visited, direction="trbl")
+        sequences += self._check_diagonal_sequences(player_id, visited, direction="trbl", found_sequences=found_sequences)
+        
+        # Store the sequences
+        self.sequence_positions[player_id] = found_sequences
         
         return sequences
     
-    def _check_horizontal_sequences(self, player_id: int, visited: set) -> int:
+    def get_sequence_positions(self, player_id: int) -> List[List[Tuple[int, int]]]:
+        """Get all sequence positions for a player."""
+        return self.sequence_positions.get(player_id, [])
+    
+    def _check_horizontal_sequences(self, player_id: int, visited: set, found_sequences: List = None) -> int:
         """Check for horizontal sequences."""
+        if found_sequences is None:
+            found_sequences = []
         sequences = 0
         for row in range(self.size):
             for col in range(self.size - 4):
@@ -169,11 +192,14 @@ class Board:
                     seq_tuple = tuple(sorted(sequence))
                     if seq_tuple not in visited:
                         visited.add(seq_tuple)
+                        found_sequences.append(list(sequence))
                         sequences += 1
         return sequences
     
-    def _check_vertical_sequences(self, player_id: int, visited: set) -> int:
+    def _check_vertical_sequences(self, player_id: int, visited: set, found_sequences: List = None) -> int:
         """Check for vertical sequences."""
+        if found_sequences is None:
+            found_sequences = []
         sequences = 0
         for col in range(self.size):
             for row in range(self.size - 4):
@@ -189,11 +215,14 @@ class Board:
                     seq_tuple = tuple(sorted(sequence))
                     if seq_tuple not in visited:
                         visited.add(seq_tuple)
+                        found_sequences.append(list(sequence))
                         sequences += 1
         return sequences
     
-    def _check_diagonal_sequences(self, player_id: int, visited: set, direction: str) -> int:
+    def _check_diagonal_sequences(self, player_id: int, visited: set, direction: str, found_sequences: List = None) -> int:
         """Check for diagonal sequences."""
+        if found_sequences is None:
+            found_sequences = []
         sequences = 0
         
         if direction == "tlbr":  # Top-left to bottom-right
@@ -211,6 +240,7 @@ class Board:
                         seq_tuple = tuple(sorted(sequence))
                         if seq_tuple not in visited:
                             visited.add(seq_tuple)
+                            found_sequences.append(list(sequence))
                             sequences += 1
         
         elif direction == "trbl":  # Top-right to bottom-left
@@ -228,6 +258,7 @@ class Board:
                         seq_tuple = tuple(sorted(sequence))
                         if seq_tuple not in visited:
                             visited.add(seq_tuple)
+                            found_sequences.append(list(sequence))
                             sequences += 1
         
         return sequences
@@ -240,6 +271,7 @@ class Board:
         """Create a deep copy of the board."""
         new_board = Board()
         new_board.chip_grid = copy.deepcopy(self.chip_grid)
+        new_board.sequence_positions = copy.deepcopy(self.sequence_positions)
         return new_board
     
     def to_dict(self) -> dict:
@@ -247,7 +279,8 @@ class Board:
         return {
             'size': self.size,
             'card_grid': self.card_grid,
-            'chip_grid': self.chip_grid
+            'chip_grid': self.chip_grid,
+            'sequence_positions': self.sequence_positions
         }
     
     def __str__(self) -> str:

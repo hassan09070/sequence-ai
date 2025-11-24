@@ -123,11 +123,12 @@ class GameManager:
                 'chips_remaining': 50  # Placeholder - chips are unlimited in the game
             })
         
-        # Get sequences count for each player
+        # Get sequences count and positions for each player
         sequences_data = {}
         for player in state.players:
             sequences_count = state.board.check_sequence(player.player_id)
-            sequences_data[str(player.player_id)] = sequences_count
+            sequence_positions = state.board.get_sequence_positions(player.player_id)
+            sequences_data[str(player.player_id)] = sequence_positions
         
         return {
             'num_players': state.num_players,

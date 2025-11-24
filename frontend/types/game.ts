@@ -22,7 +22,7 @@ export interface GameState {
   winner: number | null;
   board: Cell[][];
   players: Player[];
-  sequences: Record<number, [number, number][][]>;
+  sequences: Record<number, [number, number][][]>;  // player_id -> array of sequences, each sequence is array of [row, col] pairs
 }
 
 export interface Move {
