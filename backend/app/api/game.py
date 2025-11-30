@@ -23,14 +23,14 @@ router = APIRouter(prefix="/game", tags=["game"])
 @router.post("/create", response_model=CreateGameResponse, status_code=status.HTTP_201_CREATED)
 async def create_game(request: CreateGameRequest):
     """
-    Create a new game instance
+    Create a new Human vs AI game
     
-    - **num_players**: Number of players (2 or 3)
+    - **num_players**: Always 2 (Human vs AI)
     - **ai_config**: Optional AI configuration {player_id: difficulty}
     """
     try:
         game_id, state = game_manager.create_game(
-            num_players=request.num_players,
+            num_players=2,  # Always 2 players
             ai_config=request.ai_config
         )
         
@@ -38,7 +38,7 @@ async def create_game(request: CreateGameRequest):
             game_id=game_id,
             num_players=state.num_players,
             current_player=state.current_player_idx + 1,  # Convert 0-based to 1-based
-            message=f"Game created successfully with {state.num_players} players"
+            message="Game created: You (Player 1) vs AI (Player 2)"
         )
     except Exception as e:
         raise HTTPException(

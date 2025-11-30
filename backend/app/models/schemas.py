@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 
 
 class CreateGameRequest(BaseModel):
-    """Request to create a new game"""
-    num_players: int = Field(2, ge=2, le=3, description="Number of players (2 or 3)")
+    """Request to create a new game - Human vs AI only"""
+    num_players: int = Field(2, ge=2, le=2, description="Number of players (always 2 for Human vs AI)")
     ai_config: Optional[Dict[int, str]] = Field(None, description="AI configuration {player_id: difficulty}")
 
 
@@ -37,7 +37,7 @@ class MoveResponse(BaseModel):
 
 class AIRequest(BaseModel):
     """Request for AI to make a move"""
-    player_id: int = Field(..., ge=1, le=3, description="Player ID for AI")
+    player_id: int = Field(..., ge=1, le=2, description="Player ID for AI (always 2 for Human vs AI)")
     difficulty: str = Field("medium", description="AI difficulty: easy, medium, hard, expert")
 
 

@@ -18,7 +18,7 @@ from ai import MinimaxAI
 
 
 class GameManager:
-    """Manages multiple game instances"""
+    """Manages multiple game instances - Human vs AI only"""
     
     def __init__(self):
         """Initialize the game manager"""
@@ -27,35 +27,34 @@ class GameManager:
     
     def create_game(self, num_players: int = 2, ai_config: Optional[Dict[int, str]] = None) -> tuple[str, GameState]:
         """
-        Create a new game instance
+        Create a new game instance - Human vs AI
         
         Args:
-            num_players: Number of players (2 or 3)
+            num_players: Number of players (always 2)
             ai_config: Dictionary mapping player_id to AI difficulty
             
         Returns:
             Tuple of (game_id, GameState)
         """
         game_id = str(uuid.uuid4())
-        state = GameState(num_players)
+        state = GameState(2)  # Always 2 players
         
-        # Configure players
-        player_configs = []
-        for i in range(1, num_players + 1):
-            is_ai = ai_config and i in ai_config
-            config = {
-                'name': f'AI Player {i}' if is_ai else f'Player {i}',
-                'is_ai': is_ai
-            }
-            player_configs.append(config)
+        # Always create Human (Player 1) vs AI (Player 2)
+        # If no ai_config provided, default to medium difficulty AI
+        if not ai_config:
+            ai_config = {2: 'medium'}
+        
+        player_configs = [
+            {'name': 'You', 'is_ai': False},  # Player 1 is always Human
+            {'name': 'AI', 'is_ai': True}      # Player 2 is always AI
+        ]
         
         state.setup_game(player_configs)
         
-        # Create AI instances if needed
-        if ai_config:
-            self.ai_players[game_id] = {}
-            for player_id, difficulty in ai_config.items():
-                self.ai_players[game_id][player_id] = MinimaxAI(player_id, difficulty)
+        # Create AI instance for Player 2
+        self.ai_players[game_id] = {}
+        difficulty = ai_config.get(2, 'medium')
+        self.ai_players[game_id][2] = MinimaxAI(2, difficulty)
         
         self.games[game_id] = state
         return game_id, state
