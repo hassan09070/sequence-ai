@@ -66,11 +66,3 @@ export interface AIResponse {
 }
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';
-
-export interface WebSocketMessage {
-  type: 'connected' | 'move' | 'state_update' | 'player_joined' | 'player_disconnected';
-  game_id?: string;
-  message?: string;
-  data?: any;
-  connections?: number;
-}

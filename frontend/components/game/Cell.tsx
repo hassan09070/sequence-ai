@@ -8,77 +8,117 @@ interface CellProps {
   col: number;
   isLegalMove: boolean;
   onClick: () => void;
-  isInSequence?: boolean;
-  sequencePlayerId?: number | null;
+  isInSequence: boolean;
+  sequencePlayerId: number | null;
 }
 
-const getCardColor = (card: string): string => {
-  if (!card || card === 'WILD') return '';
-  const suit = card.slice(-1);
-  return suit === 'H' || suit === 'D' ? 'text-red-600' : 'text-gray-800';
-};
+export function Cell({
+  cell,
+  isLegalMove,
+  onClick,
+  isInSequence,
+  sequencePlayerId,
+}: CellProps) {
+  const parseCard = (card: string) => {
+    if (!card || card === 'WILD') {
+      return { value: '', suit: '' };
+    }
+    const suit = card.slice(-1); // Last character is suit (H, D, C, S)
+    const value = card.slice(0, -1); // Everything before is value
+    return { value, suit };
+  };
 
-const getChipColor = (chip: number | null): string => {
-  if (chip === 1) return 'bg-blue-500';
-  if (chip === 2) return 'bg-green-500';
-  if (chip === 3) return 'bg-yellow-500';
-  return '';
-};
+  const getSuitSymbol = (suit: string) => {
+    const suits: Record<string, string> = {
+      'H': '♥',
+      'D': '♦',
+      'C': '♣',
+      'S': '♠'
+    };
+    return suits[suit] || '';
+  };
 
-const getSequenceGlow = (playerId: number | null): string => {
-  if (playerId === 1) return 'ring-4 ring-blue-400 ring-opacity-75 shadow-[0_0_20px_rgba(59,130,246,0.8)]';
-  if (playerId === 2) return 'ring-4 ring-green-400 ring-opacity-75 shadow-[0_0_20px_rgba(34,197,94,0.8)]';
-  return '';
-};
+  const getSuitColor = (suit: string) => {
+    return (suit === 'H' || suit === 'D') ? 'text-red-600' : 'text-gray-900';
+  };
 
-export function Cell({ cell, row, col, isLegalMove, onClick, isInSequence = false, sequencePlayerId = null }: CellProps) {
+  const { value, suit } = parseCard(cell.card);
   const isWild = cell.is_wild;
-  const hasChip = cell.chip !== null;
-  const cardColor = getCardColor(cell.card);
-  const chipColor = getChipColor(cell.chip);
-  const sequenceGlow = isInSequence ? getSequenceGlow(sequencePlayerId) : '';
+  const isOccupied = cell.chip !== null;
+
+  // Chip colors for different players (Player 1 = blue, Player 2 = green)
+  let chipColor = '';
+  if (isOccupied) {
+    if (cell.chip === 1) {
+      chipColor = 'bg-blue-500 border-blue-700';
+    } else if (cell.chip === 2) {
+      chipColor = 'bg-green-500 border-green-700';
+    }
+  }
+
+  // Sequence highlight (Player 1 = blue glow, Player 2 = green glow)
+  let sequenceRing = '';
+  if (isInSequence) {
+    if (sequencePlayerId === 1) {
+      sequenceRing = 'ring-4 ring-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.6)]';
+    } else if (sequencePlayerId === 2) {
+      sequenceRing = 'ring-4 ring-green-400 shadow-[0_0_15px_rgba(34,197,94,0.6)]';
+    }
+  }
+
+  // Wild/Corner cards
+  if (isWild) {
+    return (
+      <div className="aspect-square bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg shadow-lg flex items-center justify-center border-2 border-purple-500">
+        <span className="text-3xl text-yellow-300">★</span>
+      </div>
+    );
+  }
 
   return (
     <button
       onClick={onClick}
       disabled={!isLegalMove}
       className={`
-        relative aspect-square border border-gray-300 rounded-sm
-        flex items-center justify-center
-        transition-all duration-200 overflow-hidden
-        ${isWild ? 'bg-gradient-to-br from-purple-400 to-pink-400' : 'bg-white'}
-        ${isLegalMove ? 'hover:bg-yellow-100 hover:scale-105 cursor-pointer ring-2 ring-yellow-400' : ''}
-        ${hasChip ? 'cursor-not-allowed' : ''}
-        ${!isLegalMove && !hasChip ? 'cursor-default' : ''}
-        ${sequenceGlow}
+        aspect-square relative rounded-lg shadow-lg transition-all duration-200
+        ${isLegalMove ? 'cursor-pointer hover:scale-105 hover:shadow-xl' : 'cursor-not-allowed'}
+        ${sequenceRing}
       `}
-      title={`${cell.card} at (${row}, ${col})${isInSequence ? ' - Part of sequence!' : ''}`}
     >
-      {/* Card text */}
-      <div className={`text-xs font-bold ${cardColor} ${hasChip ? 'opacity-30' : 'opacity-100'}`}>
-        {isWild ? '★' : cell.card}
+      {/* Card Background */}
+      <div
+        className={`
+          absolute inset-0 rounded-lg border-2
+          ${isOccupied ? 'bg-gray-100 border-gray-400' : 'bg-white border-gray-300'}
+          ${isLegalMove && !isOccupied ? 'ring-2 ring-yellow-400' : ''}
+        `}
+      >
+        {/* Card Content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-1">
+          {/* Card Value */}
+          <div className={`text-lg font-bold leading-none ${getSuitColor(suit)}`}>
+            {value}
+          </div>
+          {/* Suit Symbol */}
+          <div className={`text-2xl leading-none ${getSuitColor(suit)}`}>
+            {getSuitSymbol(suit)}
+          </div>
+        </div>
+
+        {/* Chip Overlay */}
+        {isOccupied && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg">
+            <div
+              className={`
+                w-10 h-10 rounded-full ${chipColor}
+                border-4 shadow-lg flex items-center justify-center
+              `}
+            >
+              <div className="w-6 h-6 rounded-full border-2 border-white/30" />
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Chip overlay */}
-      {hasChip && (
-        <div className={`absolute inset-1 rounded-full ${chipColor} shadow-lg flex items-center justify-center`}>
-          <span className="text-white text-xs font-bold">{cell.chip}</span>
-        </div>
-      )}
-
-      {/* Sequence indicator - small star in corner */}
-      {isInSequence && (
-        <div className="absolute top-0 right-0 bg-yellow-400 rounded-bl-lg px-1">
-          <span className="text-xs">⭐</span>
-        </div>
-      )}
-
-      {/* Legal move indicator */}
-      {isLegalMove && !hasChip && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-        </div>
-      )}
     </button>
   );
 }
