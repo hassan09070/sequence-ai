@@ -16,7 +16,6 @@ export default function Home() {
     setError(null);
 
     try {
-      // Always create Human vs AI game: Player 1 = Human, Player 2 = AI
       const response = await GameAPI.createGame({
         num_players: 2,
         ai_config: { 2: aiDifficulty },
