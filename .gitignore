@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - removed to allow frontend/lib
 lib64/
 parts/
 sdist/
@@ -37,9 +37,12 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Game saves
-*.json
+# Game saves (only in root, not in subdirectories)
+/*.json
 !example_game_state.json
+# Allow package.json files for npm
+!**/package.json
+!**/package-lock.json
 
 # Logs
 *.log
