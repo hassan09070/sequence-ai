@@ -106,29 +106,43 @@ class MinimaxAI:
         moves = []
         board = state.board
         opponent_id = state.get_opponent_id(player_id) # The AI (us)
+
+        interesting_spots = set()
+
+        directions = [(-1, -1), (-1, 0), (-1, 1),
+                      (0, -1),           (0, 1),
+                      (1, -1),  (1, 0),  (1, 1)]
         
+        has_chips = False
         # 1. Check all empty spots for PLACEMENT (Offense & Defense)
         # We limit this to spots near existing chips to save time (Local Search)
         # or spots that are critical.
         for row in range(board.size):
             for col in range(board.size):
-                if not board.is_position_occupied(row, col):
-                    # For now, we assume they can play ANY empty spot (Worst Case)
-                    # Optimization: In a real game, you might only check spots near other chips.
-                    card_at_pos = board.get_card_at(row, col)
-                    
-                    # Create a "Place" move. 
-                    # We use the actual card name so the game logic accepts it.
-                    moves.append(Move(player_id, card_at_pos, row, col, "place"))
+                if board.is_position_occupied(row, col):
+                    has_chips = True
+                    for dr, dc in directions:
+                        new_r, new_c = row+dr, col + dc
+                        if 0<=new_r<board.size and 0<=new_c<board.size:
+                            if not board.is_position_occupied(new_r, new_c):
+                                interesting_spots.add((new_r, new_c))
 
-        # 2. Check for One-Eyed Jacks (REMOVAL)
-        # If the AI (us) has a chip that isn't safe, assume opponent can remove it.
+
+        # If board is empty (first move), just look at center and corners
+        if not has_chips:
+            interesting_spots.update([(4,4), (4,5), (5,4), (5,5), (0,0), (0,9), (9,0), (9,9)])
+
+        # 2. Generate Place Moves for Hot Spots Only
+        for row, col in interesting_spots:
+            card_at_pos = board.get_card_at(row, col)
+            moves.append(Move(player_id, card_at_pos, row, col, "place"))
+        
+        # 3. Add Removal Moves (Limit these too!)
+        # Only remove chips that are actually blocking a sequence or part of a potential one
         for row in range(board.size):
             for col in range(board.size):
                 chip = board.get_chip_at(row, col)
                 if chip == opponent_id and not board._is_position_in_sequence(row, col):
-                    # Opponent plays a One-Eyed Jack to remove our chip
-                    # We assume 'JS' (Jack of Spades) as the generic removal card
                     moves.append(Move(player_id, 'JS', row, col, "remove"))
 
         return moves
