@@ -98,6 +98,55 @@ class MinimaxAI:
         
         return best_move
     
+    def get_tactical_moves(self, state: GameState, player_id: int) -> list[Move]:
+        """
+        Generates moves for the opponent based on board threats (Paranoid Strategy).
+        Instead of peeking at their hand, we assume they can play anywhere that matters.
+        """
+        moves = []
+        board = state.board
+        opponent_id = state.get_opponent_id(player_id) # The AI (us)
+
+        interesting_spots = set()
+
+        directions = [(-1, -1), (-1, 0), (-1, 1),
+                      (0, -1),           (0, 1),
+                      (1, -1),  (1, 0),  (1, 1)]
+        
+        has_chips = False
+        # 1. Check all empty spots for PLACEMENT (Offense & Defense)
+        # We limit this to spots near existing chips to save time (Local Search)
+        # or spots that are critical.
+        for row in range(board.size):
+            for col in range(board.size):
+                if board.is_position_occupied(row, col):
+                    has_chips = True
+                    for dr, dc in directions:
+                        new_r, new_c = row+dr, col + dc
+                        if 0<=new_r<board.size and 0<=new_c<board.size:
+                            if not board.is_position_occupied(new_r, new_c):
+                                interesting_spots.add((new_r, new_c))
+
+
+        # If board is empty (first move), just look at center and corners
+        if not has_chips:
+            interesting_spots.update([(4,4), (4,5), (5,4), (5,5), (0,0), (0,9), (9,0), (9,9)])
+
+        # 2. Generate Place Moves for Hot Spots Only
+        for row, col in interesting_spots:
+            card_at_pos = board.get_card_at(row, col)
+            moves.append(Move(player_id, card_at_pos, row, col, "place"))
+        
+        # 3. Add Removal Moves (Limit these too!)
+        # Only remove chips that are actually blocking a sequence or part of a potential one
+        for row in range(board.size):
+            for col in range(board.size):
+                chip = board.get_chip_at(row, col)
+                if chip == opponent_id and not board._is_position_in_sequence(row, col):
+                    moves.append(Move(player_id, 'JS', row, col, "remove"))
+
+        return moves
+    
     def _minimax(self, state: GameState, depth: int, alpha: float, beta: float,
                 maximizing_player: bool) -> float:
         """
@@ -128,16 +177,16 @@ class MinimaxAI:
             return evaluate_state(state, self.player_id)
         
         current_player = state.get_current_player()
-        legal_moves = state.get_legal_moves(current_player)
-        
-        # No legal moves - unlikely but handle it
-        if not legal_moves:
-            return evaluate_state(state, self.player_id)
+    
         
         if maximizing_player:
             # Maximizing player (AI)
-            max_eval = float('-inf')
             
+            legal_moves = state.get_legal_moves(current_player)
+
+            if not legal_moves:
+               return evaluate_state(state, self.player_id)
+            max_eval = float('-inf')
             for move in legal_moves:
                 # Simulate move
                 new_state = state.clone()
@@ -158,11 +207,21 @@ class MinimaxAI:
         
         else:
             # Minimizing player (opponent)
+            tactical_moves = self.get_tactical_moves(state, current_player.player_id)
+
+            # if len(tactical_moves)>15:
+            #    tactical_moves = tactical_moves[:15]
+
+            if not tactical_moves:
+                return evaluate_state(state, self.player_id)
             min_eval = float('inf')
-            
-            for move in legal_moves:
+            for move in tactical_moves:
                 # Simulate move
                 new_state = state.clone()
+                sim_player = new_state.players[current_player.player_id - 1]
+                sim_player.add_card(move.card)
+                
+                # Now apply the move (it will work because we added the card)
                 new_state.apply_move(move)
                 new_state.next_turn()
                 
