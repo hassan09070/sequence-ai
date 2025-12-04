@@ -179,21 +179,28 @@ class Board:
             found_sequences = []
         sequences = 0
         for row in range(self.size):
-            for col in range(self.size - 4):
+            col = 0
+            while col <= self.size - 5:
                 sequence = []
+                match = True
                 for i in range(5):
                     chip = self.chip_grid[row][col + i]
                     if chip == player_id or chip == 3:  # Wild corners count for both
                         sequence.append((row, col + i))
                     else:
+                        match = False
                         break
                 
-                if len(sequence) == 5:
+                if match:
                     seq_tuple = tuple(sorted(sequence))
                     if seq_tuple not in visited:
                         visited.add(seq_tuple)
                         found_sequences.append(list(sequence))
                         sequences += 1
+                    # Skip 5 positions to ensure disjoint sequences
+                    col += 5
+                else:
+                    col += 1
         return sequences
     
     def _check_vertical_sequences(self, player_id: int, visited: set, found_sequences: List = None) -> int:
@@ -202,21 +209,28 @@ class Board:
             found_sequences = []
         sequences = 0
         for col in range(self.size):
-            for row in range(self.size - 4):
+            row = 0
+            while row <= self.size - 5:
                 sequence = []
+                match = True
                 for i in range(5):
                     chip = self.chip_grid[row + i][col]
                     if chip == player_id or chip == 3:  # Wild corners count for both
                         sequence.append((row + i, col))
                     else:
+                        match = False
                         break
                 
-                if len(sequence) == 5:
+                if match:
                     seq_tuple = tuple(sorted(sequence))
                     if seq_tuple not in visited:
                         visited.add(seq_tuple)
                         found_sequences.append(list(sequence))
                         sequences += 1
+                    # Skip 5 positions to ensure disjoint sequences
+                    row += 5
+                else:
+                    row += 1
         return sequences
     
     def _check_diagonal_sequences(self, player_id: int, visited: set, direction: str, found_sequences: List = None) -> int:
@@ -226,42 +240,67 @@ class Board:
         sequences = 0
         
         if direction == "tlbr":  # Top-left to bottom-right
-            for row in range(self.size - 4):
-                for col in range(self.size - 4):
-                    sequence = []
-                    for i in range(5):
-                        chip = self.chip_grid[row + i][col + i]
-                        if chip == player_id or chip == 3:
-                            sequence.append((row + i, col + i))
-                        else:
-                            break
-                    
-                    if len(sequence) == 5:
-                        seq_tuple = tuple(sorted(sequence))
-                        if seq_tuple not in visited:
-                            visited.add(seq_tuple)
-                            found_sequences.append(list(sequence))
-                            sequences += 1
+            # Diagonals starting at top row (0, c)
+            for start_col in range(self.size - 4):
+                sequences += self._scan_diagonal(0, start_col, 1, 1, player_id, visited, found_sequences)
+            
+            # Diagonals starting at left col (r, 0), skipping (0,0)
+            for start_row in range(1, self.size - 4):
+                sequences += self._scan_diagonal(start_row, 0, 1, 1, player_id, visited, found_sequences)
         
         elif direction == "trbl":  # Top-right to bottom-left
-            for row in range(self.size - 4):
-                for col in range(4, self.size):
-                    sequence = []
-                    for i in range(5):
-                        chip = self.chip_grid[row + i][col - i]
-                        if chip == player_id or chip == 3:
-                            sequence.append((row + i, col - i))
-                        else:
-                            break
-                    
-                    if len(sequence) == 5:
-                        seq_tuple = tuple(sorted(sequence))
-                        if seq_tuple not in visited:
-                            visited.add(seq_tuple)
-                            found_sequences.append(list(sequence))
-                            sequences += 1
+            # Diagonals starting at top row (0, c)
+            for start_col in range(4, self.size):
+                sequences += self._scan_diagonal(0, start_col, 1, -1, player_id, visited, found_sequences)
+            
+            # Diagonals starting at right col (r, 9), skipping (0,9)
+            for start_row in range(1, self.size - 4):
+                sequences += self._scan_diagonal(start_row, self.size - 1, 1, -1, player_id, visited, found_sequences)
         
         return sequences
+
+    def _scan_diagonal(self, start_row: int, start_col: int, d_row: int, d_col: int, 
+                      player_id: int, visited: set, found_sequences: List) -> int:
+        """Helper to scan a single diagonal line."""
+        count = 0
+        row, col = start_row, start_col
+        
+        while 0 <= row < self.size and 0 <= col < self.size:
+            sequence = []
+            match = True
+            
+            # Check if a sequence of 5 fits
+            for i in range(5):
+                r = row + i * d_row
+                c = col + i * d_col
+                
+                if not (0 <= r < self.size and 0 <= c < self.size):
+                    match = False
+                    break
+                
+                chip = self.chip_grid[r][c]
+                if chip == player_id or chip == 3:
+                    sequence.append((r, c))
+                else:
+                    match = False
+                    break
+            
+            if match:
+                seq_tuple = tuple(sorted(sequence))
+                if seq_tuple not in visited:
+                    visited.add(seq_tuple)
+                    found_sequences.append(list(sequence))
+                    count += 1
+                
+                # Skip 5 positions
+                row += 5 * d_row
+                col += 5 * d_col
+            else:
+                # Advance 1 position
+                row += d_row
+                col += d_col
+                
+        return count
     
     def _is_valid_position(self, row: int, col: int) -> bool:
         """Check if a position is within board bounds."""
