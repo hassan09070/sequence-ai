@@ -36,13 +36,6 @@ class MinimaxAI:
     }
     
     def __init__(self, player_id: int, difficulty: str = 'medium'):
-        """
-        Initialize the AI.
-        
-        Args:
-            player_id: AI's player ID (1 or 2)
-            difficulty: Difficulty level ('easy', 'medium', 'hard', 'expert')
-        """
         self.player_id = player_id
         self.difficulty = difficulty.lower()
         self.max_depth = self.DIFFICULTY_DEPTHS.get(self.difficulty, 2)
@@ -52,12 +45,6 @@ class MinimaxAI:
     def get_best_move(self, state: GameState) -> Optional[Move]:
         """
         Get the best move for the current state using Minimax.
-        
-        Args:
-            state: Current game state
-            
-        Returns:
-            Best move to make (or None if no legal moves)
         """
         self.nodes_explored = 0
         self.pruning_count = 0
@@ -68,7 +55,7 @@ class MinimaxAI:
         if not legal_moves:
             return None
         
-        # If only one move, return it
+        # If only one move
         if len(legal_moves) == 1:
             return legal_moves[0]
         
@@ -98,7 +85,6 @@ class MinimaxAI:
                 best_value = move_value
                 best_move = move
             
-            # Update alpha
             alpha = max(alpha, best_value)
         
 
@@ -111,7 +97,7 @@ class MinimaxAI:
             'time': duration
         })
         print(f"AI Turn {turn_number}: {self.nodes_explored} nodes in {duration:.2f}s, nodes pruned {self.pruning_count}")
-        save_game_analysis()
+        save_game_analysis() #plots graph
         return best_move
     
     def _prioritize_tactical_moves(self, state: GameState, moves: list[Move]) -> list[Move]:
@@ -129,16 +115,13 @@ class MinimaxAI:
             # Removal Moves (One-Eyed Jacks)
             if is_removal:
                 score += 50
-                if 3 <= r <= 6 and 3 <= c <= 6: # removing from center
+                if 3 <= r <= 6 and 3 <= c <= 6: # removing from center 
                     score += 20
             
-            # --- 2. Placement Moves ---
             else:
-                # A. Center Control
-                if 3 <= r <= 6 and 3 <= c <= 6:
+                if 3 <= r <= 6 and 3 <= c <= 6: # center
                     score += 10
                 
-                # B. Sequence Building
                 neighbors = 0
                 directions = [(-1,0), (1,0), (0,-1), (0,1), (-1,-1), (-1,1), (1,-1), (1,1)]
                 
@@ -146,22 +129,20 @@ class MinimaxAI:
                     nr, nc = r + dr, c + dc
                     if 0 <= nr < state.board.size and 0 <= nc < state.board.size:
                         chip = state.board.get_chip_at(nr, nc)
-                        # Check if neighbor is same player or a Wild marker (usually 3)
+                        # Check if neighbor is same player or 3
                         if chip == move.player_id or chip == 3: 
                             neighbors += 1
                 
                 score += (neighbors * 15)
 
-                # C. Two-Eyed Jack Bonus
                 if is_two_eyed:
                     score += 40
 
             scored_moves.append((score, move))
             
-        # Sort descending by score (Highest score first)
+        #sort descending
         scored_moves.sort(key=lambda x: x[0], reverse=True)
-        
-        # Return just the moves
+    
         return [m for s, m in scored_moves]
 
     
@@ -172,7 +153,7 @@ class MinimaxAI:
         """
         moves = []
         board = state.board
-        opponent_id = state.get_opponent_id(player_id) # The AI (us)
+        opponent_id = state.get_opponent_id(player_id) # The AI 
 
         interesting_spots = set()
 
@@ -181,9 +162,8 @@ class MinimaxAI:
                       (1, -1),  (1, 0),  (1, 1)]
         
         has_chips = False
-        # 1. Check all empty spots for PLACEMENT (Offense & Defense)
+        
         # We limit this to spots near existing chips to save time (Local Search)
-        # or spots that are critical.
         for row in range(board.size):
             for col in range(board.size):
                 if board.is_position_occupied(row, col):
@@ -199,12 +179,10 @@ class MinimaxAI:
         if not has_chips:
             interesting_spots.update([(4,4), (4,5), (5,4), (5,5), (0,0), (0,9), (9,0), (9,9)])
 
-        # 2. Generate Place Moves for Hot Spots Only
         for row, col in interesting_spots:
             card_at_pos = board.get_card_at(row, col)
             moves.append(Move(player_id, card_at_pos, row, col, "place"))
-        
-        # 3. Add Removal Moves (Limit these too!)
+
         # Only remove chips that are actually blocking a sequence or part of a potential one
         for row in range(board.size):
             for col in range(board.size):
@@ -221,16 +199,6 @@ class MinimaxAI:
                 maximizing_player: bool) -> float:
         """
         Minimax algorithm with alpha-beta pruning.
-        
-        Args:
-            state: Current game state
-            depth: Remaining search depth
-            alpha: Alpha value for pruning
-            beta: Beta value for pruning
-            maximizing_player: True if maximizing, False if minimizing
-            
-        Returns:
-            Evaluation score for this state
         """
         self.nodes_explored += 1
         
@@ -263,22 +231,19 @@ class MinimaxAI:
                 new_state.apply_move(move)
                 new_state.next_turn()
                 
-                # Recursive minimax
                 eval_score = self._minimax(new_state, depth - 1, alpha, beta, False)
                 max_eval = max(max_eval, eval_score)
                 
-                # Alpha-beta pruning
                 alpha = max(alpha, eval_score)
                 if beta <= alpha:
                     self.pruning_count += 1
-                    break  # Beta cut-off
+                    break  
             
             return max_eval
         
         else:
             # Minimizing player (opponent)
             tactical_moves = self.get_tactical_moves(state, current_player.player_id)
-
 
             if not tactical_moves:
                 return evaluate_state(state, self.player_id)
@@ -289,20 +254,17 @@ class MinimaxAI:
                 new_state = state.clone()
                 sim_player = new_state.players[current_player.player_id - 1]
                 sim_player.add_card(move.card)
-                
-                # Now apply the move (it will work because we added the card)
                 new_state.apply_move(move)
                 new_state.next_turn()
                 
                 # Recursive minimax
                 eval_score = self._minimax(new_state, depth - 1, alpha, beta, True)
                 min_eval = min(min_eval, eval_score)
-                
-                # Alpha-beta pruning
+
                 beta = min(beta, eval_score)
                 if beta <= alpha:
                     self.pruning_count += 1
-                    break  # Alpha cut-off
+                    break  
             
             return min_eval
     
@@ -318,30 +280,19 @@ class MinimaxAI:
 def get_best_move(state: GameState, player_id: int, difficulty: str = 'medium') -> Optional[Move]:
     """
     Convenience function to get the best move.
-    
-    Args:
-        state: Current game state
-        player_id: Player ID
-        difficulty: AI difficulty level
-        
-    Returns:
-        Best move to make
     """
     ai = MinimaxAI(player_id, difficulty)
     move = ai.get_best_move(state)
     
-    # --- ADDED LOGIC ---
-    # Check if the AI's chosen move will end the game
     if move:
         # Create a temporary copy to test the move
         test_state = state.clone()
         test_state.apply_move(move)
         
-        # If this move results in a win (or draw), save the plot!
         if test_state.is_terminal():
             print("AI is making a winning move. Saving analysis plot...")
             save_game_analysis()
-    # -------------------
+
     return move
 
 def save_game_analysis():
