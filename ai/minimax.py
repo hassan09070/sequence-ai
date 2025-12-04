@@ -5,14 +5,18 @@ Implements Minimax algorithm with Alpha-Beta pruning for optimal move selection.
 """
 
 from typing import Optional, Tuple
+import matplotlib.pyplot as plt
 import sys
 import os
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from game.gamestate import GameState, Move
 from .heuristics import evaluate_state
 
+
+PERFORMANCE_HISTORY = [] 
 
 class MinimaxAI:
     """
@@ -57,7 +61,8 @@ class MinimaxAI:
         """
         self.nodes_explored = 0
         self.pruning_count = 0
-        
+        start_time = time.time()
+
         legal_moves = state.get_legal_moves(state.players[self.player_id - 1])
         
         if not legal_moves:
@@ -96,7 +101,69 @@ class MinimaxAI:
             # Update alpha
             alpha = max(alpha, best_value)
         
+
+        duration = time.time() - start_time
+        turn_number = len(PERFORMANCE_HISTORY) + 1
+        PERFORMANCE_HISTORY.append({
+            'turn': turn_number,
+            'nodes': self.nodes_explored,
+            'pruning': self.pruning_count,
+            'time': duration
+        })
+        print(f"AI Turn {turn_number}: {self.nodes_explored} nodes in {duration:.2f}s, nodes pruned {self.pruning_count}")
+        save_game_analysis()
         return best_move
+    
+    def _prioritize_tactical_moves(self, state: GameState, moves: list[Move]) -> list[Move]:
+        """
+        Sorts tactical moves based on immediate threat/value using a lightweight heuristic.
+        """
+        scored_moves = []
+        
+        for move in moves:
+            score = 0
+            r, c = move.row, move.col
+            is_removal = (move.move_type == "remove")
+            is_two_eyed = state.deck.is_two_eyed_jack(move.card)
+
+            # Removal Moves (One-Eyed Jacks)
+            if is_removal:
+                score += 50
+                if 3 <= r <= 6 and 3 <= c <= 6: # removing from center
+                    score += 20
+            
+            # --- 2. Placement Moves ---
+            else:
+                # A. Center Control
+                if 3 <= r <= 6 and 3 <= c <= 6:
+                    score += 10
+                
+                # B. Sequence Building
+                neighbors = 0
+                directions = [(-1,0), (1,0), (0,-1), (0,1), (-1,-1), (-1,1), (1,-1), (1,1)]
+                
+                for dr, dc in directions:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < state.board.size and 0 <= nc < state.board.size:
+                        chip = state.board.get_chip_at(nr, nc)
+                        # Check if neighbor is same player or a Wild marker (usually 3)
+                        if chip == move.player_id or chip == 3: 
+                            neighbors += 1
+                
+                score += (neighbors * 15)
+
+                # C. Two-Eyed Jack Bonus
+                if is_two_eyed:
+                    score += 40
+
+            scored_moves.append((score, move))
+            
+        # Sort descending by score (Highest score first)
+        scored_moves.sort(key=lambda x: x[0], reverse=True)
+        
+        # Return just the moves
+        return [m for s, m in scored_moves]
+
     
     def get_tactical_moves(self, state: GameState, player_id: int) -> list[Move]:
         """
@@ -145,6 +212,9 @@ class MinimaxAI:
                 if chip == opponent_id and not board._is_position_in_sequence(row, col):
                     moves.append(Move(player_id, 'JS', row, col, "remove"))
 
+        if moves: moves = self._prioritize_tactical_moves(state,moves)
+        
+        if len(moves)>12: moves=moves[:12]
         return moves
     
     def _minimax(self, state: GameState, depth: int, alpha: float, beta: float,
@@ -209,11 +279,10 @@ class MinimaxAI:
             # Minimizing player (opponent)
             tactical_moves = self.get_tactical_moves(state, current_player.player_id)
 
-            # if len(tactical_moves)>15:
-            #    tactical_moves = tactical_moves[:15]
 
             if not tactical_moves:
                 return evaluate_state(state, self.player_id)
+            
             min_eval = float('inf')
             for move in tactical_moves:
                 # Simulate move
@@ -246,72 +315,6 @@ class MinimaxAI:
             'difficulty': self.difficulty
         }
 
-
-def minimax(state: GameState, depth: int, maximizing_player: bool,
-           alpha: float, beta: float, player_id: int) -> float:
-    """
-    Standalone minimax function.
-    
-    Args:
-        state: Game state to evaluate
-        depth: Search depth
-        maximizing_player: True if maximizing, False if minimizing
-        alpha: Alpha value for pruning
-        beta: Beta value for pruning
-        player_id: Player ID to optimize for
-        
-    Returns:
-        Evaluation score
-    """
-    # Terminal state
-    if state.is_terminal():
-        winner = state.get_winner()
-        if winner == player_id:
-            return float('inf')
-        else:
-            return float('-inf')
-    
-    # Depth limit
-    if depth == 0:
-        return evaluate_state(state, player_id)
-    
-    legal_moves = state.get_legal_moves()
-    
-    if not legal_moves:
-        return evaluate_state(state, player_id)
-    
-    if maximizing_player:
-        max_eval = float('-inf')
-        for move in legal_moves:
-            new_state = state.clone()
-            new_state.apply_move(move)
-            new_state.next_turn()
-            
-            eval_score = minimax(new_state, depth - 1, False, alpha, beta, player_id)
-            max_eval = max(max_eval, eval_score)
-            alpha = max(alpha, eval_score)
-            
-            if beta <= alpha:
-                break
-        
-        return max_eval
-    else:
-        min_eval = float('inf')
-        for move in legal_moves:
-            new_state = state.clone()
-            new_state.apply_move(move)
-            new_state.next_turn()
-            
-            eval_score = minimax(new_state, depth - 1, True, alpha, beta, player_id)
-            min_eval = min(min_eval, eval_score)
-            beta = min(beta, eval_score)
-            
-            if beta <= alpha:
-                break
-        
-        return min_eval
-
-
 def get_best_move(state: GameState, player_id: int, difficulty: str = 'medium') -> Optional[Move]:
     """
     Convenience function to get the best move.
@@ -325,4 +328,66 @@ def get_best_move(state: GameState, player_id: int, difficulty: str = 'medium') 
         Best move to make
     """
     ai = MinimaxAI(player_id, difficulty)
-    return ai.get_best_move(state)
+    move = ai.get_best_move(state)
+    
+    # --- ADDED LOGIC ---
+    # Check if the AI's chosen move will end the game
+    if move:
+        # Create a temporary copy to test the move
+        test_state = state.clone()
+        test_state.apply_move(move)
+        
+        # If this move results in a win (or draw), save the plot!
+        if test_state.is_terminal():
+            print("AI is making a winning move. Saving analysis plot...")
+            save_game_analysis()
+    # -------------------
+    return move
+
+def save_game_analysis():
+    """
+    Generates a plot of the AI's performance during the game 
+    and saves it to the ai/ folder.
+    """
+    if not PERFORMANCE_HISTORY:
+        print("No AI stats to plot.")
+        return
+
+    turns = [data['turn'] for data in PERFORMANCE_HISTORY]
+    nodes = [data['nodes'] for data in PERFORMANCE_HISTORY]
+    times = [data['time'] for data in PERFORMANCE_HISTORY]
+    pruned = [data['pruning'] for data in PERFORMANCE_HISTORY]
+
+    # Create the plot
+    plt.figure(figsize=(10, 8))
+    
+    # Subplot 1: Nodes vs Pruning
+    plt.subplot(2, 1, 1)
+    plt.plot(turns, nodes, 'b-o', linewidth=2, label='Nodes Explored')
+    plt.plot(turns, pruned, 'g--x', linewidth=2, label='Branches Pruned') # Add Pruning line
+    plt.title('Search Efficiency: Explored vs Pruned')
+    plt.ylabel('Count')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+
+    # Subplot 2: Time Taken
+    plt.subplot(2, 1, 2)
+    plt.plot(turns, times, 'r-o', linewidth=2, label='Time (seconds)')
+    plt.title('Execution Time per Turn')
+    plt.xlabel('Turn Number')
+    plt.ylabel('Seconds')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    
+    plt.tight_layout()
+    
+    # Save file
+    output_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(output_dir, 'live_game_analysis.png')
+    plt.savefig(filename)
+    plt.close()
+    
+    # print(f"Live: Analysis saved to: {filename}")
+    
+    # Clear history for next game
+    # PERFORMANCE_HISTORY.clear()
