@@ -102,6 +102,6 @@ chip (unless it's part of a completed sequence). The four corners are wild for e
 
 - [Hassan Shahzad](https://github.com/hassan09070)
 - Muhammad Affan
-- Rohan
+- Rohaan Ahmed
 
 MIT licensed — see [LICENSE](LICENSE).
